@@ -1,9 +1,15 @@
 import SwiftUI
 import CoreLocation
+import MapKit
 
 struct MapView: View {
     @ObservedObject var flightManager: FlightManager
     @State private var showingFullMap = false
+    @State private var showingOfflineMapOptions = false
+    @State private var currentLocationName: String = ""
+    
+    @ObservedObject private var mapService = MapService.shared
+    @ObservedObject private var geocodeService = GeocodeService.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -21,11 +27,17 @@ struct MapView: View {
                                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
                         )
                     
-                    if let status = flightManager.liveFlightStatus,
+                    if let progress = flightManager.flightProgress,
                        let flight = flightManager.currentTrackingFlight {
                         VStack(spacing: 16) {
-                            routeVisualization(flight: flight, status: status)
-                            locationInfo(status: status)
+                            routeVisualization(flight: flight, progress: progress)
+                            locationInfo(progress: progress)
+                        }
+                    } else if let status = flightManager.liveFlightStatus,
+                             let flight = flightManager.currentTrackingFlight {
+                        VStack(spacing: 16) {
+                            routeVisualizationLegacy(flight: flight, status: status)
+                            locationInfoLegacy(status: status)
                         }
                     } else {
                         VStack(spacing: 12) {
@@ -47,6 +59,9 @@ struct MapView: View {
         .sheet(isPresented: $showingFullMap) {
             FullMapView(flightManager: flightManager)
         }
+        .sheet(isPresented: $showingOfflineMapOptions) {
+            OfflineMapOptionsView(flightManager: flightManager)
+        }
     }
     
     private var mapHeaderView: some View {
@@ -59,15 +74,38 @@ struct MapView: View {
             Spacer()
             
             if flightManager.isTracking {
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 4, height: 4)
+                HStack(spacing: 8) {
+                    if flightManager.isOfflineMode {
+                        HStack(spacing: 4) {
+                            Image(systemName: "airplane.departure")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.orange)
+                            
+                            Text("OFFLINE")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.orange)
+                                .tracking(1)
+                        }
+                    } else {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 4, height: 4)
+                            
+                            Text("LIVE")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.white.opacity(0.6))
+                                .tracking(1)
+                        }
+                    }
                     
-                    Text("LIVE")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                        .tracking(1)
+                    Button(action: {
+                        showingOfflineMapOptions = true
+                    }) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.4))
+                    }
                 }
             }
         }
@@ -75,7 +113,109 @@ struct MapView: View {
         .padding(.bottom, 16)
     }
     
-    private func routeVisualization(flight: SavedFlight, status: LiveFlightStatus) -> some View {
+    private func routeVisualization(flight: SavedFlight, progress: FlightProgress) -> some View {
+        HStack(spacing: 0) {
+            VStack(spacing: 8) {
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 6, height: 6)
+                Text(flight.departure.code)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+                    .tracking(1)
+            }
+            
+            ZStack {
+                Rectangle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(height: 1)
+                
+                Rectangle()
+                    .fill(Color.white)
+                    .frame(width: 160 * progress.progressPercentage, height: 1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                
+                HStack {
+                    Spacer()
+                    
+                    Image(systemName: progress.isOnGround ? "airplane.departure" : "airplane")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white)
+                        .rotationEffect(.degrees(progress.heading))
+                        .offset(x: -80 + (160 * progress.progressPercentage))
+                    
+                    Spacer()
+                }
+            }
+            .frame(width: 160)
+            
+            VStack(spacing: 8) {
+                Circle()
+                    .fill(Color.white.opacity(0.3))
+                    .frame(width: 6, height: 6)
+                Text(flight.arrival.code)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+                    .tracking(1)
+            }
+        }
+        .padding(.horizontal, 24)
+    }
+    
+    private func locationInfo(progress: FlightProgress) -> some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "location.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                
+                Text(progress.currentLocationName)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
+                    .tracking(0.5)
+            }
+            
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ALTITUDE")
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundColor(.white.opacity(0.3))
+                        .tracking(1)
+                    
+                    Text("\(Int(progress.altitude)) ft")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .tracking(0.5)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("SPEED")
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundColor(.white.opacity(0.3))
+                        .tracking(1)
+                    
+                    Text("\(Int(progress.speed * 3.6)) km/h")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .tracking(0.5)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("PROGRESS")
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundColor(.white.opacity(0.3))
+                        .tracking(1)
+                    
+                    Text("\(Int(progress.progressPercentage * 100))%")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .tracking(0.5)
+                }
+            }
+        }
+    }
+    
+    private func routeVisualizationLegacy(flight: SavedFlight, status: LiveFlightStatus) -> some View {
         HStack(spacing: 0) {
             VStack(spacing: 8) {
                 Circle()
@@ -124,7 +264,7 @@ struct MapView: View {
         .padding(.horizontal, 24)
     }
     
-    private func locationInfo(status: LiveFlightStatus) -> some View {
+    private func locationInfoLegacy(status: LiveFlightStatus) -> some View {
         VStack(spacing: 6) {
             HStack(spacing: 6) {
                 Image(systemName: "location.fill")

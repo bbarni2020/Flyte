@@ -13,7 +13,11 @@ struct SettingsView: View {
     
     @State private var showingAbout = false
     @State private var showingDataManagement = false
+    @State private var showingAPIKeySetup = false
     @State private var isLoading = false
+    
+    @ObservedObject private var apiService = FlightAPIService.shared
+    @ObservedObject private var openSkyService = OpenSkyService.shared
     
     var body: some View {
         NavigationView {
@@ -32,12 +36,16 @@ struct SettingsView: View {
             .navigationBarHidden(true)
         }
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showingAPIKeySetup) {
+            APIKeySetupView()
+        }
     }
     
     private var settingsContent: some View {
         ScrollView {
             LazyVStack(spacing: 32) {
                 headerView
+                apiSettings
                 notificationSettings
                 unitSettings
                 flightSettings
@@ -62,6 +70,46 @@ struct SettingsView: View {
                 .tracking(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    private var apiSettings: some View {
+        MinimalSettingsSection(title: "API CONFIGURATION", icon: "key") {
+            MinimalSettingsButton(
+                title: "AviationStack API Key",
+                subtitle: apiService.hasValidAPIKey ? "Configured (\(apiService.requestCount)/\(apiService.requestLimit) requests used)" : "Not configured - tap to set up",
+                action: { showingAPIKeySetup = true }
+            )
+            
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "cloud")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                    
+                    Text("OpenSky Network")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+                        .tracking(0.5)
+                    
+                    Spacer()
+                    
+                    Text("Connected")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.green.opacity(0.8))
+                        .tracking(0.5)
+                }
+                
+                if let lastUpdate = openSkyService.lastUpdateTime {
+                    Text("Last updated: \(lastUpdate.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.3))
+                        .tracking(0.5)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .background(Color.clear)
+        }
     }
     
     private var notificationSettings: some View {
@@ -195,7 +243,6 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Minimal Settings Components
 
 struct MinimalSettingsSection<Content: View>: View {
     let title: String
