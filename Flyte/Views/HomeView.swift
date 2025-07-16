@@ -109,6 +109,14 @@ struct HomeView: View {
             ForEach(flightManager.savedFlights) { flight in
                 FlightCardView(flight: flight, flightManager: flightManager)
             }
+            .onDelete(perform: deleteFlight)
+        }
+    }
+    
+    private func deleteFlight(at offsets: IndexSet) {
+        for index in offsets {
+            let flight = flightManager.savedFlights[index]
+            flightManager.deleteFlight(flight)
         }
     }
 }
@@ -231,6 +239,17 @@ struct FlightCardView: View {
                 }
                 .disabled(flight.isDownloaded)
                 
+                Button(action: { deleteFlight() }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12, weight: .medium))
+                        Text("Delete")
+                            .font(.system(size: 11, weight: .medium))
+                            .tracking(0.5)
+                    }
+                    .foregroundColor(.red.opacity(0.6))
+                }
+                
                 Spacer()
                 
                 Button("Track Flight") {
@@ -253,10 +272,19 @@ struct FlightCardView: View {
                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
         .cornerRadius(16)
+        .contextMenu {
+            Button(action: { deleteFlight() }) {
+                Label("Delete Flight", systemImage: "trash")
+            }
+        }
     }
     
     private func downloadRoute() {
         flightManager.downloadRouteData(for: flight)
+    }
+    
+    private func deleteFlight() {
+        flightManager.deleteFlight(flight)
     }
 }
 

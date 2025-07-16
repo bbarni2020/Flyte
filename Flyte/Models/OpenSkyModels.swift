@@ -51,7 +51,7 @@ enum OpenSkyStateValue: Codable {
     }
 }
 
-struct OpenSkyState {
+struct OpenSkyState: Codable {
     let icao24: String
     let callsign: String?
     let originCountry: String

@@ -293,6 +293,18 @@ class FlightManager: ObservableObject {
         }
     }
     
+    func deleteFlight(_ flight: SavedFlight) {
+        if let index = savedFlights.firstIndex(where: { $0.id == flight.id }) {
+            savedFlights.remove(at: index)
+            saveFights()
+            coreDataService.deleteFlight(flight)
+            
+            if currentTrackingFlight?.id == flight.id {
+                stopTracking()
+            }
+        }
+    }
+    
     func downloadRouteData(for flight: SavedFlight) {
         guard let index = savedFlights.firstIndex(where: { $0.id == flight.id }) else { return }
         
