@@ -8,15 +8,10 @@ struct HomeView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                LinearGradient(
-                    gradient: Gradient(colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.4)]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                Color.black.ignoresSafeArea()
                 
                 ScrollView {
-                    LazyVStack(spacing: 16) {
+                    LazyVStack(spacing: 24) {
                         headerView
                         
                         if isLoading {
@@ -28,66 +23,89 @@ struct HomeView: View {
                             flightsList
                         }
                     }
-                    .padding()
+                    .padding(.horizontal, 24)
+                    .padding(.top, 32)
                 }
             }
-            .navigationTitle("My Flights")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingAddFlight = true }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2)
-                            .foregroundColor(.white)
-                    }
-                }
-            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarHidden(true)
             .sheet(isPresented: $showingAddFlight) {
                 AddFlightView(flightManager: flightManager)
             }
         }
+        .preferredColorScheme(.dark)
     }
     
     private var headerView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Welcome back!")
-                .font(.title2)
-                .fontWeight(.medium)
-                .foregroundColor(.white)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("FLYTE")
+                        .font(.system(size: 20, weight: .ultraLight, design: .rounded))
+                        .foregroundColor(.white)
+                        .tracking(6)
+                    
+                    Text("Flight Tracker")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                        .tracking(2)
+                }
+                
+                Spacer()
+                
+                Button(action: { showingAddFlight = true }) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .ultraLight))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 32, height: 32)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        )
+                }
+            }
             
-            Text("Track your upcoming flights")
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.8))
+            if !flightManager.savedFlights.isEmpty {
+                Text("MY FLIGHTS")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+                    .tracking(2)
+                    .padding(.top, 24)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "airplane.departure")
-                .font(.system(size: 60))
-                .foregroundColor(.white.opacity(0.7))
-            
-            Text("No flights yet")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-            
-            Text("Add your first flight to get started")
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.8))
+        VStack(spacing: 32) {
+            VStack(spacing: 16) {
+                Image(systemName: "airplane.departure")
+                    .font(.system(size: 48, weight: .ultraLight))
+                    .foregroundColor(.white.opacity(0.3))
+                
+                Text("No flights yet")
+                    .font(.system(size: 18, weight: .ultraLight))
+                    .foregroundColor(.white.opacity(0.6))
+                    .tracking(1)
+                
+                Text("Add your first flight to get started")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.3))
+                    .tracking(1)
+            }
             
             Button("Add Flight") {
                 showingAddFlight = true
             }
-            .buttonStyle(PrimaryButtonStyle())
+            .buttonStyle(MinimalButtonStyle())
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .padding(.vertical, 60)
     }
     
     private var flightsList: some View {
-        LazyVStack(spacing: 12) {
+        LazyVStack(spacing: 16) {
             ForEach(flightManager.savedFlights) { flight in
                 FlightCardView(flight: flight, flightManager: flightManager)
             }
@@ -103,96 +121,113 @@ struct FlightCardView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(flight.flightNumber)
-                        .font(.headline)
-                        .fontWeight(.bold)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .tracking(1)
                     
                     Text(flight.airline)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                        .tracking(1)
                 }
                 
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(flight.departureDate, style: .date)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.3))
+                        .tracking(0.5)
                     
                     Text(flight.departureTime, style: .time)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .tracking(0.5)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
             
-            Divider()
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+            Rectangle()
+                .fill(Color.white.opacity(0.1))
+                .frame(height: 1)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("FROM")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.white.opacity(0.3))
+                        .tracking(2)
                     Text(flight.departure.code)
-                        .font(.title3)
-                        .fontWeight(.bold)
+                        .font(.system(size: 20, weight: .ultraLight))
+                        .foregroundColor(.white)
+                        .tracking(2)
                     Text(flight.departure.city)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                        .tracking(0.5)
                 }
                 
                 Spacer()
                 
                 Image(systemName: "airplane")
-                    .font(.title2)
-                    .foregroundColor(.blue)
+                    .font(.system(size: 16, weight: .ultraLight))
+                    .foregroundColor(.white.opacity(0.3))
+                    .rotationEffect(.degrees(45))
                 
                 Spacer()
                 
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: 6) {
                     Text("TO")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.white.opacity(0.3))
+                        .tracking(2)
                     Text(flight.arrival.code)
-                        .font(.title3)
-                        .fontWeight(.bold)
+                        .font(.system(size: 20, weight: .ultraLight))
+                        .foregroundColor(.white)
+                        .tracking(2)
                     Text(flight.arrival.city)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                        .tracking(0.5)
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 20)
             
-            Divider()
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-            
-            HStack(spacing: 16) {
-                if let gate = flight.gate {
-                    InfoPill(title: "Gate", value: gate, color: .blue)
-                }
-                
-                InfoPill(title: "Status", value: flight.status.rawValue, color: Color(flight.status.color))
-                
-                if let baggage = flight.baggageReclaim {
-                    InfoPill(title: "Baggage", value: baggage, color: .green)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            Rectangle()
+                .fill(Color.white.opacity(0.1))
+                .frame(height: 1)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             
             HStack(spacing: 12) {
+                if let gate = flight.gate {
+                    MinimalInfoPill(title: "Gate", value: gate)
+                }
+                
+                MinimalInfoPill(title: "Status", value: flight.status.rawValue)
+                
+                if let baggage = flight.baggageReclaim {
+                    MinimalInfoPill(title: "Baggage", value: baggage)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+            
+            HStack(spacing: 16) {
                 Button(action: { downloadRoute() }) {
-                    HStack {
+                    HStack(spacing: 6) {
                         Image(systemName: flight.isDownloaded ? "checkmark.circle.fill" : "arrow.down.circle")
+                            .font(.system(size: 12, weight: .medium))
                         Text(flight.isDownloaded ? "Downloaded" : "Download")
+                            .font(.system(size: 11, weight: .medium))
+                            .tracking(0.5)
                     }
-                    .font(.caption)
-                    .foregroundColor(flight.isDownloaded ? .green : .blue)
+                    .foregroundColor(flight.isDownloaded ? .white.opacity(0.4) : .white.opacity(0.6))
                 }
                 .disabled(flight.isDownloaded)
                 
@@ -201,19 +236,23 @@ struct FlightCardView: View {
                 Button("Track Flight") {
                     flightManager.startTracking(flight: flight)
                 }
-                .font(.caption)
-                .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.blue)
-                .cornerRadius(16)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.black)
+                .tracking(1)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(Color.white)
+                .cornerRadius(20)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
         }
-        .background(Color(.systemBackground))
+        .background(Color.black)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
         .cornerRadius(16)
-        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
     }
     
     private func downloadRoute() {
@@ -221,24 +260,24 @@ struct FlightCardView: View {
     }
 }
 
-struct InfoPill: View {
+struct MinimalInfoPill: View {
     let title: String
     let value: String
-    let color: Color
     
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: 4) {
             Text(title.uppercased())
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                .font(.system(size: 8, weight: .medium))
+                .foregroundColor(.white.opacity(0.3))
+                .tracking(1)
             Text(value)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(color)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white.opacity(0.6))
+                .tracking(0.5)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(color.opacity(0.1))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.05))
         .cornerRadius(8)
     }
 }
@@ -255,87 +294,103 @@ struct AddFlightView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                LinearGradient(
-                    gradient: Gradient(colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.4)]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                Color.black.ignoresSafeArea()
                 
-                VStack(spacing: 24) {
+                VStack(spacing: 32) {
+                    headerView
+                    
                     if isLoading {
                         FlightLoadingView()
                             .frame(height: 200)
                     } else {
                         formContent
                     }
+                    
+                    Spacer()
                 }
-                .padding()
+                .padding(.horizontal, 24)
+                .padding(.top, 32)
             }
-            .navigationTitle("Add Flight")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(.white)
-                }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Add") {
-                        addFlight()
-                    }
-                    .foregroundColor(.white)
-                    .disabled(flightNumber.isEmpty)
-                }
+            .navigationBarHidden(true)
+        }
+        .preferredColorScheme(.dark)
+    }
+    
+    private var headerView: some View {
+        HStack {
+            Button("Cancel") {
+                dismiss()
             }
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(.white.opacity(0.6))
+            .tracking(0.5)
+            
+            Spacer()
+            
+            Text("ADD FLIGHT")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white.opacity(0.8))
+                .tracking(3)
+            
+            Spacer()
+            
+            Button("Add") {
+                addFlight()
+            }
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(flightNumber.isEmpty ? .white.opacity(0.3) : .white)
+            .tracking(0.5)
+            .disabled(flightNumber.isEmpty)
         }
     }
     
     private var formContent: some View {
-        VStack(spacing: 24) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Flight Details")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.white)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Flight Number")
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+        VStack(spacing: 32) {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("FLIGHT NUMBER")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                        .tracking(2)
                     
                     TextField("e.g., AA123", text: $flightNumber)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
                         .textInputAutocapitalization(.characters)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color.white.opacity(0.05))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                        .cornerRadius(12)
                 }
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Departure Date")
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("DEPARTURE DATE")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                        .tracking(2)
                     
                     DatePicker("", selection: $departureDate, displayedComponents: .date)
                         .datePickerStyle(CompactDatePickerStyle())
                         .colorScheme(.dark)
                 }
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Departure Time")
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("DEPARTURE TIME")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.4))
+                        .tracking(2)
                     
                     DatePicker("", selection: $departureTime, displayedComponents: .hourAndMinute)
                         .datePickerStyle(CompactDatePickerStyle())
                         .colorScheme(.dark)
                 }
             }
-            .padding(20)
-            .background(Color.white.opacity(0.1))
-            .cornerRadius(16)
-            
-            Spacer()
         }
     }
     
@@ -347,6 +402,33 @@ struct AddFlightView: View {
                 flightNumber: flightNumber,
                 departureDate: departureDate,
                 departureTime: departureTime
+            )
+            isLoading = false
+            dismiss()
+        }
+    }
+}
+
+// MARK: - Button Styles
+
+struct MinimalButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(.white)
+            .tracking(2)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.05))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+            )
+            .cornerRadius(24)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
             )
             isLoading = false
             dismiss()

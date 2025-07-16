@@ -72,14 +72,14 @@ struct IdleStateView: View {
     let flightManager: FlightManager
     
     var body: some View {
-        VStack(spacing: 40) {
+        VStack(spacing: 60) {
             HStack {
                 Button(action: {
                     showingSearch = true
                 }) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
+                        .font(.system(size: 18, weight: .ultraLight))
+                        .foregroundColor(.white.opacity(0.6))
                 }
                 
                 Spacer()
@@ -88,27 +88,29 @@ struct IdleStateView: View {
                     showingSettings = true
                 }) {
                     Image(systemName: "gearshape")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
+                        .font(.system(size: 18, weight: .ultraLight))
+                        .foregroundColor(.white.opacity(0.6))
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
+            .padding(.horizontal, 32)
+            .padding(.top, 32)
             
-            VStack(spacing: 20) {
+            VStack(spacing: 32) {
                 Image(systemName: "airplane")
-                    .font(.system(size: 80, weight: .ultraLight))
-                    .foregroundColor(.white.opacity(0.8))
+                    .font(.system(size: 64, weight: .ultraLight))
+                    .foregroundColor(.white.opacity(0.3))
                 
-                Text("FLYTE")
-                    .font(.system(size: 32, weight: .ultraLight, design: .rounded))
-                    .foregroundColor(.white)
-                    .tracking(4)
-                
-                Text("Offline Flight Tracker")
-                    .font(.system(size: 16, weight: .light))
-                    .foregroundColor(.white.opacity(0.6))
-                    .tracking(2)
+                VStack(spacing: 8) {
+                    Text("FLYTE")
+                        .font(.system(size: 28, weight: .ultraLight, design: .rounded))
+                        .foregroundColor(.white)
+                        .tracking(8)
+                    
+                    Text("Offline Flight Tracker")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.3))
+                        .tracking(3)
+                }
             }
             
             Spacer()
@@ -117,56 +119,64 @@ struct IdleStateView: View {
                 Button(action: {
                     showingFlightList = true
                 }) {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 20, weight: .medium))
-                        Text("Start Tracking")
-                            .font(.system(size: 18, weight: .medium))
-                            .tracking(1)
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .medium))
+                        Text("START TRACKING")
+                            .font(.system(size: 12, weight: .medium))
+                            .tracking(2)
                     }
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                    .frame(height: 48)
                     .background(Color.white)
-                    .cornerRadius(28)
+                    .cornerRadius(24)
                 }
                 
                 Button(action: {
                     showingSearch = true
                 }) {
-                    HStack {
+                    HStack(spacing: 8) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16, weight: .medium))
-                        Text("Search Flights")
-                            .font(.system(size: 16, weight: .medium))
-                            .tracking(1)
+                            .font(.system(size: 12, weight: .medium))
+                        Text("SEARCH FLIGHTS")
+                            .font(.system(size: 12, weight: .medium))
+                            .tracking(2)
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.white.opacity(0.8))
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(Color.white.opacity(0.1))
+                    .background(Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
                     .cornerRadius(24)
                 }
                 
                 Button(action: {
                     showingFlightNumberInput = true
                 }) {
-                    HStack {
-                        Image(systemName: "airplane.circle")
-                            .font(.system(size: 16, weight: .medium))
-                        Text("Enter Flight Number")
-                            .font(.system(size: 16, weight: .medium))
-                            .tracking(1)
+                    HStack(spacing: 8) {
+                        Image(systemName: "textformat.123")
+                            .font(.system(size: 12, weight: .medium))
+                        Text("FLIGHT NUMBER")
+                            .font(.system(size: 12, weight: .medium))
+                            .tracking(2)
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.white.opacity(0.8))
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(Color.white.opacity(0.1))
+                    .background(Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
                     .cornerRadius(24)
                 }
             }
-            .padding(.horizontal, 40)
-            .padding(.bottom, 40)
+            .padding(.horizontal, 48)
+            .padding(.bottom, 60)
         }
     }
 }
@@ -189,80 +199,89 @@ struct FlightHeaderView: View {
     @ObservedObject var flightManager: FlightManager
     
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 32) {
             HStack {
                 Button(action: {
                     flightManager.stopTracking()
                 }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
+                        .font(.system(size: 18, weight: .ultraLight))
+                        .foregroundColor(.white.opacity(0.6))
                 }
                 
                 Spacer()
                 
-                Text("LIVE TRACKING")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.green)
-                    .tracking(2)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 4, height: 4)
+                    
+                    Text("LIVE")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .tracking(2)
+                }
                 
                 Spacer()
                 
-                Circle()
-                    .fill(Color.green)
-                    .frame(width: 8, height: 8)
-                    .opacity(0.8)
+                Color.clear.frame(width: 18)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 20)
+            .padding(.horizontal, 32)
+            .padding(.top, 32)
             
             if let flight = flightManager.currentTrackingFlight {
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
                     Text("\(flight.airline) \(flight.flightNumber)")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-                        .tracking(1)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
+                        .tracking(2)
                     
                     HStack {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 8) {
                             Text(flight.departure.code)
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.system(size: 20, weight: .ultraLight))
                                 .foregroundColor(.white)
+                                .tracking(2)
                             Text(flight.departure.city)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white.opacity(0.6))
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.white.opacity(0.4))
+                                .tracking(1)
                         }
                         
                         Spacer()
                         
-                        VStack(spacing: 8) {
+                        VStack(spacing: 6) {
                             Image(systemName: "airplane")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundColor(.white.opacity(0.8))
+                                .font(.system(size: 16, weight: .ultraLight))
+                                .foregroundColor(.white.opacity(0.4))
+                                .rotationEffect(.degrees(45))
                             
                             if let status = flightManager.liveFlightStatus {
                                 Text("\(Int(status.progress * 100))%")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.6))
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.3))
+                                    .tracking(1)
                             }
                         }
                         
                         Spacer()
                         
-                        VStack(alignment: .trailing, spacing: 4) {
+                        VStack(alignment: .trailing, spacing: 8) {
                             Text(flight.arrival.code)
-                                .font(.system(size: 24, weight: .bold))
+                                .font(.system(size: 20, weight: .ultraLight))
                                 .foregroundColor(.white)
+                                .tracking(2)
                             Text(flight.arrival.city)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white.opacity(0.6))
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.white.opacity(0.4))
+                                .tracking(1)
                         }
                     }
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 32)
             }
         }
-        .padding(.bottom, 20)
+        .padding(.bottom, 24)
     }
 }
 
@@ -280,46 +299,52 @@ struct FlightDetailsView: View {
     var body: some View {
         VStack(spacing: 0) {
             if let status = flightManager.liveFlightStatus {
-                Rectangle()
-                    .fill(Color.white)
-                    .frame(height: status.progress * UIScreen.main.bounds.width)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white.opacity(0.1))
-                    .frame(height: 4)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.1))
+                            .frame(height: 2)
+                        
+                        Rectangle()
+                            .fill(Color.white)
+                            .frame(width: geometry.size.width * status.progress, height: 2)
+                    }
+                }
+                .frame(height: 2)
+                .padding(.horizontal, 32)
+                .padding(.top, 32)
                 
-                VStack(spacing: 24) {
-                    HStack(spacing: 20) {
-                        FlightInfoCard(
+                VStack(spacing: 32) {
+                    HStack(spacing: 16) {
+                        MinimalFlightInfoCard(
                             title: "ALTITUDE",
                             value: "\(Int(status.altitude)) ft",
                             icon: "arrow.up"
                         )
                         
-                        FlightInfoCard(
+                        MinimalFlightInfoCard(
                             title: "SPEED",
                             value: "\(Int(status.speed)) mph",
                             icon: "speedometer"
                         )
                     }
                     
-                    HStack(spacing: 20) {
-                        FlightInfoCard(
+                    HStack(spacing: 16) {
+                        MinimalFlightInfoCard(
                             title: "TIME LEFT",
                             value: formatTime(status.estimatedTimeRemaining),
                             icon: "clock"
                         )
                         
-                        FlightInfoCard(
+                        MinimalFlightInfoCard(
                             title: "DISTANCE",
                             value: "\(Int(status.distanceRemaining)) mi",
-                            icon: "ruler"
+                            icon: "map"
                         )
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 30)
+                .padding(.horizontal, 32)
+                .padding(.top, 40)
             }
             
             Spacer()
@@ -333,32 +358,37 @@ struct FlightDetailsView: View {
     }
 }
 
-struct FlightInfoCard: View {
+struct MinimalFlightInfoCard: View {
     let title: String
     let value: String
     let icon: String
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.3))
                 
                 Text(title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
-                    .tracking(1)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white.opacity(0.3))
+                    .tracking(2)
             }
             
             Text(value)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.white)
+                .font(.system(size: 16, weight: .ultraLight))
+                .foregroundColor(.white.opacity(0.8))
+                .tracking(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(16)
+        .background(Color.white.opacity(0.02))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+        )
+        .cornerRadius(12)
     }
 }
 

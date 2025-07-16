@@ -8,14 +8,11 @@ struct OfflineModeView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                LinearGradient(
-                    gradient: Gradient(colors: [Color.blue.opacity(0.6), Color.purple.opacity(0.4)]),
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                Color.black.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
+                    headerView
+                    
                     if isLoading {
                         PulsingLoadingView()
                             .frame(height: 200)
@@ -26,23 +23,11 @@ struct OfflineModeView: View {
                     }
                 }
             }
-            .navigationTitle("Offline Mode")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { flightManager.toggleOfflineMode() }) {
-                        HStack {
-                            Circle()
-                                .fill(flightManager.isOfflineMode ? Color.red : Color.green)
-                                .frame(width: 8, height: 8)
-                            Text(flightManager.isOfflineMode ? "Offline" : "Online")
-                                .font(.caption)
-                        }
-                        .foregroundColor(.white)
-                    }
-                }
-            }
+            .navigationBarHidden(true)
         }
+        .preferredColorScheme(.dark)
         .onAppear {
             if flightManager.currentTrackingFlight != nil {
                 startLoading()
@@ -50,22 +35,58 @@ struct OfflineModeView: View {
         }
     }
     
+    private var headerView: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("TRACK")
+                    .font(.system(size: 16, weight: .ultraLight))
+                    .foregroundColor(.white)
+                    .tracking(4)
+                
+                Text("Offline Mode")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+                    .tracking(2)
+            }
+            
+            Spacer()
+            
+            Button(action: { flightManager.toggleOfflineMode() }) {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(flightManager.isOfflineMode ? Color.white.opacity(0.3) : Color.white)
+                        .frame(width: 4, height: 4)
+                    Text(flightManager.isOfflineMode ? "OFFLINE" : "ONLINE")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(flightManager.isOfflineMode ? .white.opacity(0.4) : .white.opacity(0.8))
+                        .tracking(1)
+                }
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 32)
+        .padding(.bottom, 24)
+    }
+    
     private var noTrackingView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "airplane.departure")
-                .font(.system(size: 60))
-                .foregroundColor(.white.opacity(0.7))
-            
-            Text("No Active Flight")
-                .font(.title2)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-            
-            Text("Start tracking a flight from your home screen to see live updates here")
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.8))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+        VStack(spacing: 32) {
+            VStack(spacing: 20) {
+                Image(systemName: "airplane.departure")
+                    .font(.system(size: 48, weight: .ultraLight))
+                    .foregroundColor(.white.opacity(0.3))
+                
+                Text("No Active Flight")
+                    .font(.system(size: 18, weight: .ultraLight))
+                    .foregroundColor(.white.opacity(0.6))
+                    .tracking(1)
+                
+                Text("Start tracking a flight from your home screen to see live updates here")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.3))
+                    .tracking(0.5)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 48)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -231,27 +252,41 @@ struct OfflineModeView: View {
     private var controlButtons: some View {
         HStack(spacing: 16) {
             Button(action: { flightManager.stopTracking() }) {
-                HStack {
+                HStack(spacing: 6) {
                     Image(systemName: "stop.circle")
-                    Text("Stop Tracking")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("STOP TRACKING")
+                        .font(.system(size: 11, weight: .medium))
+                        .tracking(1)
                 }
-                .font(.headline)
                 .foregroundColor(.white)
-                .padding()
-                .background(Color.red)
-                .cornerRadius(12)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Color.white.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+                .cornerRadius(20)
             }
             
             Button(action: { flightManager.toggleOfflineMode() }) {
-                HStack {
+                HStack(spacing: 6) {
                     Image(systemName: flightManager.isOfflineMode ? "wifi" : "wifi.slash")
-                    Text(flightManager.isOfflineMode ? "Go Online" : "Go Offline")
+                        .font(.system(size: 12, weight: .medium))
+                    Text(flightManager.isOfflineMode ? "GO ONLINE" : "GO OFFLINE")
+                        .font(.system(size: 11, weight: .medium))
+                        .tracking(1)
                 }
-                .font(.headline)
                 .foregroundColor(.white)
-                .padding()
-                .background(Color.blue)
-                .cornerRadius(12)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(Color.white.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+                .cornerRadius(20)
             }
         }
     }
