@@ -16,12 +16,13 @@ struct SavedFlight: Codable, Identifiable {
     let aircraft: String?
     let routeData: RouteData?
     let isDownloaded: Bool
+    let icao24: String? // Add ICAO24 transponder code for OpenSky tracking
     
     enum CodingKeys: String, CodingKey {
-        case flightNumber, departureDate, departureTime, gate, terminal, baggageReclaim, status, departure, arrival, airline, aircraft, routeData, isDownloaded
+        case flightNumber, departureDate, departureTime, gate, terminal, baggageReclaim, status, departure, arrival, airline, aircraft, routeData, isDownloaded, icao24
     }
     
-    init(flightNumber: String, departureDate: Date, departureTime: Date, gate: String? = nil, terminal: String? = nil, baggageReclaim: String? = nil, status: FlightStatus = .scheduled, departure: Airport, arrival: Airport, airline: String, aircraft: String? = nil, routeData: RouteData? = nil, isDownloaded: Bool = false) {
+    init(flightNumber: String, departureDate: Date, departureTime: Date, gate: String? = nil, terminal: String? = nil, baggageReclaim: String? = nil, status: FlightStatus = .scheduled, departure: Airport, arrival: Airport, airline: String, aircraft: String? = nil, routeData: RouteData? = nil, isDownloaded: Bool = false, icao24: String? = nil) {
         self.flightNumber = flightNumber
         self.departureDate = departureDate
         self.departureTime = departureTime
@@ -35,6 +36,7 @@ struct SavedFlight: Codable, Identifiable {
         self.aircraft = aircraft
         self.routeData = routeData
         self.isDownloaded = isDownloaded
+        self.icao24 = icao24
     }
     
     func updatedWithDownload(routeData: RouteData) -> SavedFlight {
@@ -51,7 +53,8 @@ struct SavedFlight: Codable, Identifiable {
             airline: airline,
             aircraft: aircraft,
             routeData: routeData,
-            isDownloaded: true
+            isDownloaded: true,
+            icao24: icao24
         )
     }
     
@@ -69,7 +72,27 @@ struct SavedFlight: Codable, Identifiable {
             airline: airline,
             aircraft: aircraft,
             routeData: routeData,
-            isDownloaded: isDownloaded
+            isDownloaded: isDownloaded,
+            icao24: icao24
+        )
+    }
+    
+    func updatedWithICAO24(_ icao24: String) -> SavedFlight {
+        return SavedFlight(
+            flightNumber: flightNumber,
+            departureDate: departureDate,
+            departureTime: departureTime,
+            gate: gate,
+            terminal: terminal,
+            baggageReclaim: baggageReclaim,
+            status: status,
+            departure: departure,
+            arrival: arrival,
+            airline: airline,
+            aircraft: aircraft,
+            routeData: routeData,
+            isDownloaded: isDownloaded,
+            icao24: icao24
         )
     }
 }
@@ -160,174 +183,21 @@ class FlightManager: ObservableObject {
     @Published var savedFlights: [SavedFlight] = []
     @Published var currentTrackingFlight: SavedFlight?
     @Published var liveFlightStatus: LiveFlightStatus?
+    @Published var flightProgress: FlightProgress?
     @Published var isTracking = false
     @Published var isOfflineMode = false
     @Published var apiService = FlightAPIService.shared
+    @Published var openSkyService = OpenSkyService.shared
+    @Published var offlineService = OfflineFlightService.shared
+    @Published var airportService = AirportDatabaseService.shared
+    @Published var coreDataService = CoreDataService.shared
     
     private var timer: Timer?
+    private var trackingTimer: Timer?
     private let userDefaults = UserDefaults.standard
     
     init() {
         loadSavedFlights()
-        addSampleDataIfNeeded()
-    }
-    
-    private func addSampleDataIfNeeded() {
-        if savedFlights.isEmpty {
-            let sampleFlights = [
-                SavedFlight(
-                    flightNumber: "AA123",
-                    departureDate: Date().addingTimeInterval(86400),
-                    departureTime: Date().addingTimeInterval(86400 + 3600),
-                    gate: "A12",
-                    terminal: "1",
-                    baggageReclaim: "5",
-                    status: .scheduled,
-                    departure: Airport(code: "LAX", name: "Los Angeles International", city: "Los Angeles", country: "USA", coordinate: CLLocationCoordinate2D(latitude: 33.9425, longitude: -118.4081)),
-                    arrival: Airport(code: "JFK", name: "John F. Kennedy International", city: "New York", country: "USA", coordinate: CLLocationCoordinate2D(latitude: 40.6413, longitude: -73.7781)),
-                    airline: "American Airlines",
-                    aircraft: "Boeing 737"
-                ),
-                SavedFlight(
-                    flightNumber: "UA456",
-                    departureDate: Date().addingTimeInterval(172800),
-                    departureTime: Date().addingTimeInterval(172800 + 7200),
-                    gate: "B8",
-                    terminal: "2",
-                    baggageReclaim: "3",
-                    status: .boarding,
-                    departure: Airport(code: "SFO", name: "San Francisco International", city: "San Francisco", country: "USA", coordinate: CLLocationCoordinate2D(latitude: 37.6213, longitude: -122.3790)),
-                    arrival: Airport(code: "ORD", name: "O'Hare International", city: "Chicago", country: "USA", coordinate: CLLocationCoordinate2D(latitude: 41.9742, longitude: -87.9073)),
-                    airline: "United Airlines",
-                    aircraft: "Airbus A320"
-                )
-            ]
-            savedFlights = sampleFlights
-            saveFights()
-        }
-    }
-    
-    func addFlight(flightNumber: String, departureDate: Date, departureTime: Date) {
-        let newFlight = SavedFlight(
-            flightNumber: flightNumber,
-            departureDate: departureDate,
-            departureTime: departureTime,
-            gate: "A" + String(Int.random(in: 1...20)),
-            terminal: String(Int.random(in: 1...4)),
-            baggageReclaim: String(Int.random(in: 1...10)),
-            status: .scheduled,
-            departure: Airport(code: "LAX", name: "Los Angeles International", city: "Los Angeles", country: "USA", coordinate: CLLocationCoordinate2D(latitude: 33.9425, longitude: -118.4081)),
-            arrival: Airport(code: "JFK", name: "John F. Kennedy International", city: "New York", country: "USA", coordinate: CLLocationCoordinate2D(latitude: 40.6413, longitude: -73.7781)),
-            airline: "American Airlines"
-        )
-        
-        savedFlights.append(newFlight)
-        saveFights()
-        
-        fetchFlightDetails(for: newFlight)
-    }
-    
-    func downloadRouteData(for flight: SavedFlight) {
-        guard let index = savedFlights.firstIndex(where: { $0.id == flight.id }) else { return }
-        
-        let routeData = RouteData(
-            waypoints: generateWaypoints(from: flight.departure.coordinate, to: flight.arrival.coordinate),
-            duration: 5.5 * 3600,
-            distance: 2475.0,
-            offlineMapData: generateOfflineMapData()
-        )
-        
-        let updatedFlight = flight.updatedWithDownload(routeData: routeData)
-        savedFlights[index] = updatedFlight
-        saveFights()
-    }
-    
-    func startTracking(flight: SavedFlight) {
-        currentTrackingFlight = flight
-        isTracking = true
-        
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            self.updateLiveFlightStatus()
-        }
-    }
-    
-    func stopTracking() {
-        timer?.invalidate()
-        timer = nil
-        isTracking = false
-        liveFlightStatus = nil
-        currentTrackingFlight = nil
-    }
-    
-    func toggleOfflineMode() {
-        isOfflineMode.toggle()
-    }
-    
-    private func fetchFlightDetails(for flight: SavedFlight) {
-        
-    }
-    
-    private func updateLiveFlightStatus() {
-        guard let flight = currentTrackingFlight else { return }
-        
-        let elapsed = Date().timeIntervalSince(flight.departureTime)
-        let totalDuration = flight.routeData?.duration ?? 5.5 * 3600
-        let progress = min(max(elapsed / totalDuration, 0.0), 1.0)
-        
-        let currentLocation = interpolateLocation(progress: progress, from: flight.departure.coordinate, to: flight.arrival.coordinate)
-        let currentCountry = getCountryForLocation(currentLocation)
-        
-        liveFlightStatus = LiveFlightStatus(
-            currentLocation: currentLocation,
-            altitude: 35000 + sin(progress * .pi) * 5000,
-            speed: 850 + Double.random(in: -50...50),
-            progress: progress,
-            currentCountry: currentCountry,
-            estimatedTimeRemaining: totalDuration - elapsed,
-            distanceRemaining: (flight.routeData?.distance ?? 2475.0) * (1.0 - progress),
-            actualDepartureTime: flight.departureTime,
-            estimatedArrivalTime: flight.departureTime.addingTimeInterval(totalDuration)
-        )
-    }
-    
-    private func interpolateLocation(progress: Double, from start: CLLocationCoordinate2D, to end: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
-        return CLLocationCoordinate2D(
-            latitude: start.latitude + (end.latitude - start.latitude) * progress,
-            longitude: start.longitude + (end.longitude - start.longitude) * progress
-        )
-    }
-    
-    private func generateWaypoints(from start: CLLocationCoordinate2D, to end: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
-        var waypoints: [CLLocationCoordinate2D] = []
-        let steps = 10
-        
-        for i in 0...steps {
-            let progress = Double(i) / Double(steps)
-            let waypoint = CLLocationCoordinate2D(
-                latitude: start.latitude + (end.latitude - start.latitude) * progress,
-                longitude: start.longitude + (end.longitude - start.longitude) * progress
-            )
-            waypoints.append(waypoint)
-        }
-        
-        return waypoints
-    }
-    
-    private func generateOfflineMapData() -> Data {
-        return Data()
-    }
-    
-    private func saveFights() {
-        if let encoded = try? JSONEncoder().encode(savedFlights) {
-            userDefaults.set(encoded, forKey: "savedFlights")
-        }
-    }
-    
-    private func loadSavedFlights() {
-        if let data = userDefaults.data(forKey: "savedFlights"),
-           let decoded = try? JSONDecoder().decode([SavedFlight].self, from: data) {
-            savedFlights = decoded
-        }
     }
     
     private func getCountryForLocation(_ location: CLLocationCoordinate2D) -> String {
@@ -356,6 +226,320 @@ class FlightManager: ObservableObject {
             return "Over Ocean"
         } else {
             return "International Waters"
+        }
+    }
+    
+    func addFlight(flightNumber: String, departureDate: Date, departureTime: Date) {
+        let cleanFlightNumber = flightNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        Task {
+            if let flightData = await apiService.fetchFlightDetails(for: cleanFlightNumber) {
+                await MainActor.run {
+                    let departure = self.airportService.findAirport(by: flightData.departure.iata)?.toAirport() ?? 
+                        Airport(code: flightData.departure.iata, name: flightData.departure.airport, 
+                               city: flightData.departure.airport, country: "Unknown", 
+                               coordinate: CLLocationCoordinate2D(latitude: 0, longitude: 0))
+                    
+                    let arrival = self.airportService.findAirport(by: flightData.arrival.iata)?.toAirport() ?? 
+                        Airport(code: flightData.arrival.iata, name: flightData.arrival.airport, 
+                               city: flightData.arrival.airport, country: "Unknown", 
+                               coordinate: CLLocationCoordinate2D(latitude: 0, longitude: 0))
+                    
+                    let newFlight = SavedFlight(
+                        flightNumber: cleanFlightNumber,
+                        departureDate: departureDate,
+                        departureTime: departureTime,
+                        gate: flightData.departure.gate,
+                        terminal: flightData.departure.terminal,
+                        baggageReclaim: flightData.arrival.baggage,
+                        status: self.parseFlightStatus(flightData.flight_status),
+                        departure: departure,
+                        arrival: arrival,
+                        airline: flightData.airline.name,
+                        aircraft: flightData.aircraft?.iata
+                    )
+                    
+                    self.savedFlights.append(newFlight)
+                    self.saveFights()
+                    self.coreDataService.saveFlight(newFlight)
+                }
+            } else {
+                await MainActor.run {
+                    let newFlight = SavedFlight(
+                        flightNumber: cleanFlightNumber,
+                        departureDate: departureDate,
+                        departureTime: departureTime,
+                        departure: Airport(code: "LAX", name: "Los Angeles International", city: "Los Angeles", country: "USA", coordinate: CLLocationCoordinate2D(latitude: 33.9425, longitude: -118.4081)),
+                        arrival: Airport(code: "JFK", name: "John F. Kennedy International", city: "New York", country: "USA", coordinate: CLLocationCoordinate2D(latitude: 40.6413, longitude: -73.7781)),
+                        airline: "Unknown Airline"
+                    )
+                    
+                    self.savedFlights.append(newFlight)
+                    self.saveFights()
+                    self.coreDataService.saveFlight(newFlight)
+                }
+            }
+        }
+    }
+    
+    private func parseFlightStatus(_ status: String) -> FlightStatus {
+        switch status.lowercased() {
+        case "scheduled": return .scheduled
+        case "active", "en-route": return .inAir
+        case "landed": return .landed
+        case "cancelled": return .cancelled
+        case "delayed": return .delayed
+        default: return .scheduled
+        }
+    }
+    
+    func downloadRouteData(for flight: SavedFlight) {
+        guard let index = savedFlights.firstIndex(where: { $0.id == flight.id }) else { return }
+        
+        Task {
+            if let routeWaypoints = await apiService.fetchFlightRoute(for: flight.flightNumber) {
+                let routeData = RouteData(
+                    waypoints: routeWaypoints,
+                    duration: estimateFlightDuration(from: flight.departure.coordinate, to: flight.arrival.coordinate),
+                    distance: calculateDistance(from: flight.departure.coordinate, to: flight.arrival.coordinate),
+                    offlineMapData: nil // Will be populated by map service
+                )
+                
+                await MainActor.run {
+                    let updatedFlight = flight.updatedWithDownload(routeData: routeData)
+                    self.savedFlights[index] = updatedFlight
+                    self.saveFights()
+                    self.coreDataService.updateFlight(updatedFlight)
+                }
+            }
+        }
+    }
+    
+    private func estimateFlightDuration(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> TimeInterval {
+        let distance = calculateDistance(from: from, to: to)
+        let averageSpeed = 850.0 // km/h
+        return (distance / averageSpeed) * 3600
+    }
+    
+    private func calculateDistance(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> Double {
+        let fromLocation = CLLocation(latitude: from.latitude, longitude: from.longitude)
+        let toLocation = CLLocation(latitude: to.latitude, longitude: to.longitude)
+        return fromLocation.distance(from: toLocation) / 1000.0
+    }
+    
+    func startTracking(flight: SavedFlight) {
+        currentTrackingFlight = flight
+        isTracking = true
+        
+        openSkyService.startRealTimeTracking(updateInterval: 45)
+        
+        trackingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            self.updateLiveFlightStatus()
+        }
+        
+        offlineService.startOfflineTracking(for: flight)
+    }
+    
+    func stopTracking() {
+        trackingTimer?.invalidate()
+        trackingTimer = nil
+        timer?.invalidate()
+        timer = nil
+        isTracking = false
+        liveFlightStatus = nil
+        flightProgress = nil
+        currentTrackingFlight = nil
+        
+        openSkyService.stopTracking()
+        offlineService.stopOfflineTracking()
+    }
+    
+    func toggleOfflineMode() {
+        isOfflineMode.toggle()
+        
+        if isOfflineMode {
+            openSkyService.stopTracking()
+            if let flight = currentTrackingFlight {
+                offlineService.startOfflineTracking(for: flight)
+            }
+        } else {
+            openSkyService.startRealTimeTracking(updateInterval: 45)
+            offlineService.stopOfflineTracking()
+        }
+    }
+    
+    private func fetchFlightDetails(for flight: SavedFlight) {
+        Task {
+            if let flightData = await apiService.fetchFlightDetails(for: flight.flightNumber) {
+                await MainActor.run {
+                    if let index = self.savedFlights.firstIndex(where: { $0.id == flight.id }) {
+                        let updatedFlight = flight.updatedWithDetails(
+                            gate: flightData.departure.gate,
+                            terminal: flightData.departure.terminal,
+                            baggageReclaim: flightData.arrival.baggage,
+                            status: self.parseFlightStatus(flightData.flight_status)
+                        )
+                        self.savedFlights[index] = updatedFlight
+                        self.saveFights()
+                        self.coreDataService.updateFlight(updatedFlight)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func updateLiveFlightStatus() {
+        guard let flight = currentTrackingFlight else { return }
+        
+        if isOfflineMode {
+            if let offlineEstimate = offlineService.calculateOfflineProgress(for: flight) {
+                liveFlightStatus = LiveFlightStatus(
+                    currentLocation: offlineEstimate.estimatedPosition,
+                    altitude: 35000, // Estimated cruise altitude
+                    speed: 850, // Estimated cruise speed
+                    progress: offlineEstimate.progressPercentage,
+                    currentCountry: offlineEstimate.estimatedLocationName,
+                    estimatedTimeRemaining: offlineEstimate.estimatedTimeRemaining,
+                    distanceRemaining: calculateDistance(from: offlineEstimate.estimatedPosition, to: flight.arrival.coordinate),
+                    actualDepartureTime: flight.departureTime,
+                    estimatedArrivalTime: flight.departureTime.addingTimeInterval(flight.routeData?.duration ?? estimateFlightDuration(from: flight.departure.coordinate, to: flight.arrival.coordinate))
+                )
+            }
+        } else {
+            if let openSkyState = findOpenSkyState(for: flight) {
+                if let progress = openSkyService.getFlightProgress(for: flight, using: openSkyState) {
+                    flightProgress = progress
+                    
+                    liveFlightStatus = LiveFlightStatus(
+                        currentLocation: progress.currentPosition,
+                        altitude: progress.altitude,
+                        speed: progress.speed,
+                        progress: progress.progressPercentage,
+                        currentCountry: progress.currentLocationName,
+                        estimatedTimeRemaining: progress.estimatedTimeRemaining,
+                        distanceRemaining: progress.distanceRemaining,
+                        actualDepartureTime: flight.departureTime,
+                        estimatedArrivalTime: Date().addingTimeInterval(progress.estimatedTimeRemaining)
+                    )
+                }
+            } else {
+                if let offlineEstimate = offlineService.calculateOfflineProgress(for: flight) {
+                    liveFlightStatus = LiveFlightStatus(
+                        currentLocation: offlineEstimate.estimatedPosition,
+                        altitude: 35000,
+                        speed: 850,
+                        progress: offlineEstimate.progressPercentage,
+                        currentCountry: offlineEstimate.estimatedLocationName,
+                        estimatedTimeRemaining: offlineEstimate.estimatedTimeRemaining,
+                        distanceRemaining: calculateDistance(from: offlineEstimate.estimatedPosition, to: flight.arrival.coordinate),
+                        actualDepartureTime: flight.departureTime,
+                        estimatedArrivalTime: flight.departureTime.addingTimeInterval(flight.routeData?.duration ?? estimateFlightDuration(from: flight.departure.coordinate, to: flight.arrival.coordinate))
+                    )
+                }
+            }
+        }
+    }
+    
+    private func findOpenSkyState(for flight: SavedFlight) -> OpenSkyState? {
+        if let state = openSkyService.findFlightByCallsign(flight.flightNumber) {
+            return state
+        }
+        
+        if let cache = coreDataService.loadFlightCache(for: flight.flightNumber),
+           let icao24 = cache.icao24 {
+            return openSkyService.findFlightByICAO24(icao24)
+        }
+        
+        let departureBounds = createBounds(around: flight.departure.coordinate, radius: 100)
+        let arrivalBounds = createBounds(around: flight.arrival.coordinate, radius: 100)
+        
+        let nearbyFlights = openSkyService.findFlightsInBounds(
+            northEast: departureBounds.northEast,
+            southWest: departureBounds.southWest
+        ) + openSkyService.findFlightsInBounds(
+            northEast: arrivalBounds.northEast,
+            southWest: arrivalBounds.southWest
+        )
+        
+        return nearbyFlights.first { state in
+            guard let callsign = state.callsign else { return false }
+            return callsign.contains(flight.flightNumber.prefix(2)) // Airline code match
+        }
+    }
+    
+    private func createBounds(around center: CLLocationCoordinate2D, radius: Double) -> (northEast: CLLocationCoordinate2D, southWest: CLLocationCoordinate2D) {
+        let latDelta = radius / 111.0 // Approximate km per degree
+        let lonDelta = radius / (111.0 * cos(center.latitude * .pi / 180))
+        
+        return (
+            northEast: CLLocationCoordinate2D(latitude: center.latitude + latDelta, longitude: center.longitude + lonDelta),
+            southWest: CLLocationCoordinate2D(latitude: center.latitude - latDelta, longitude: center.longitude - lonDelta)
+        )
+    }
+    
+    private func interpolateLocation(progress: Double, from start: CLLocationCoordinate2D, to end: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
+        let startLat = start.latitude * .pi / 180
+        let startLon = start.longitude * .pi / 180
+        let endLat = end.latitude * .pi / 180
+        let endLon = end.longitude * .pi / 180
+        
+        let d = 2 * asin(sqrt(pow(sin((startLat - endLat) / 2), 2) + cos(startLat) * cos(endLat) * pow(sin((startLon - endLon) / 2), 2)))
+        
+        let a = sin((1 - progress) * d) / sin(d)
+        let b = sin(progress * d) / sin(d)
+        
+        let x = a * cos(startLat) * cos(startLon) + b * cos(endLat) * cos(endLon)
+        let y = a * cos(startLat) * sin(startLon) + b * cos(endLat) * sin(endLon)
+        let z = a * sin(startLat) + b * sin(endLat)
+        
+        let resultLat = atan2(z, sqrt(x * x + y * y))
+        let resultLon = atan2(y, x)
+        
+        return CLLocationCoordinate2D(
+            latitude: resultLat * 180 / .pi,
+            longitude: resultLon * 180 / .pi
+        )
+    }
+    
+    private func generateWaypoints(from start: CLLocationCoordinate2D, to end: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
+        var waypoints: [CLLocationCoordinate2D] = []
+        let steps = 20 // More waypoints for smoother tracking
+        
+        for i in 0...steps {
+            let progress = Double(i) / Double(steps)
+            let waypoint = interpolateLocation(progress: progress, from: start, to: end)
+            waypoints.append(waypoint)
+        }
+        
+        return waypoints
+    }
+    
+    private func generateOfflineMapData() -> Data {
+        return Data()
+    }
+    
+    private func saveFights() {
+        for flight in savedFlights {
+            coreDataService.saveFlight(flight)
+        }
+        
+        if let encoded = try? JSONEncoder().encode(savedFlights) {
+            userDefaults.set(encoded, forKey: "savedFlights")
+        }
+    }
+    
+    private func loadSavedFlights() {
+        savedFlights = coreDataService.loadFlights()
+        
+        if savedFlights.isEmpty {
+            if let data = userDefaults.data(forKey: "savedFlights"),
+               let decoded = try? JSONDecoder().decode([SavedFlight].self, from: data) {
+                savedFlights = decoded
+                
+                for flight in savedFlights {
+                    coreDataService.saveFlight(flight)
+                }
+            }
         }
     }
 }
