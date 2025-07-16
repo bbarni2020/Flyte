@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22225" systemVersion="22G120" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="YES" userDefinedModelVersionIdentifier="">
+    <entity name="FlightEntity" representedClassName="FlightEntity" syncable="YES">
+        <attribute name="aircraft" optional="YES" attributeType="String"/>
+        <attribute name="airline" attributeType="String" defaultValueString=""/>
+        <attribute name="arrivalAirportCode" attributeType="String" defaultValueString=""/>
+        <attribute name="baggageReclaim" optional="YES" attributeType="String"/>
+        <attribute name="departureAirportCode" attributeType="String" defaultValueString=""/>
+        <attribute name="departureDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="departureTime" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="flightNumber" attributeType="String" defaultValueString=""/>
+        <attribute name="gate" optional="YES" attributeType="String"/>
+        <attribute name="isDownloaded" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="offlineMapData" optional="YES" attributeType="Binary"/>
+        <attribute name="routeDistance" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="routeDuration" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="routeWaypoints" optional="YES" attributeType="Binary"/>
+        <attribute name="status" attributeType="String" defaultValueString=""/>
+        <attribute name="terminal" optional="YES" attributeType="String"/>
+    </entity>
+    <entity name="FlightCacheEntity" representedClassName="FlightCacheEntity" syncable="YES">
+        <attribute name="apiSource" attributeType="String" defaultValueString=""/>
+        <attribute name="flightNumber" attributeType="String" defaultValueString=""/>
+        <attribute name="icao24" optional="YES" attributeType="String"/>
+        <attribute name="lastLatitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="lastLongitude" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="lastUpdate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+</model>

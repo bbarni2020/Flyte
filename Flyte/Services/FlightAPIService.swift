@@ -119,7 +119,7 @@ class FlightAPIService: ObservableObject {
     
     private let baseURL = "https://api.aviationstack.com/v1"
     var apiKey: String {
-        return UserDefaults.standard.string(forKey: "aviationstack_api_key") ?? ""
+        return KeychainService.shared.getAPIKey(for: .aviationStack) ?? ""
     }
     
     @Published var cachedFlights: [FlightData] = []
@@ -127,27 +127,62 @@ class FlightAPIService: ObservableObject {
     @Published var isLoading = false
     @Published var lastUpdateTime: Date?
     @Published var hasValidAPIKey: Bool = false
+    @Published var requestCount: Int = 0
+    @Published var requestLimit: Int = 100
     
     private let userDefaults = UserDefaults.standard
     private let flightsCacheKey = "cachedFlights"
     private let airportsCacheKey = "cachedAirports"
     private let lastUpdateKey = "lastUpdateTime"
+    private let requestCountKey = "aviationstack_request_count"
+    private let requestResetDateKey = "aviationstack_request_reset_date"
     
     init() {
         loadCachedData()
         checkAPIKey()
+        loadRequestCount()
     }
     
     private func checkAPIKey() {
         hasValidAPIKey = !apiKey.isEmpty
     }
     
+    func updateAPIKey(_ newKey: String) {
+        KeychainService.shared.saveAPIKey(newKey, for: .aviationStack)
+        checkAPIKey()
+    }
+    
     func updateAPIKeyStatus() {
         checkAPIKey()
     }
     
+    private func loadRequestCount() {
+        requestCount = userDefaults.integer(forKey: requestCountKey)
+        
+        if let resetDate = userDefaults.object(forKey: requestResetDateKey) as? Date {
+            let calendar = Calendar.current
+            let now = Date()
+            if !calendar.isDate(resetDate, equalTo: now, toGranularity: .month) {
+                requestCount = 0
+                userDefaults.set(0, forKey: requestCountKey)
+                userDefaults.set(now, forKey: requestResetDateKey)
+            }
+        } else {
+            userDefaults.set(Date(), forKey: requestResetDateKey)
+        }
+    }
+    
+    private func incrementRequestCount() {
+        requestCount += 1
+        userDefaults.set(requestCount, forKey: requestCountKey)
+    }
+    
+    private func canMakeRequest() -> Bool {
+        return requestCount < requestLimit && !apiKey.isEmpty
+    }
+    
     func preloadFlightData() async {
-        guard !apiKey.isEmpty else {
+        guard canMakeRequest() else {
             return
         }
         
@@ -165,8 +200,67 @@ class FlightAPIService: ObservableObject {
         }
     }
     
+    func fetchFlightDetails(for flightNumber: String) async -> FlightData? {
+        guard canMakeRequest(),
+              let url = URL(string: "\(baseURL)/flights?access_key=\(apiKey)&flight_iata=\(flightNumber)") else {
+            return nil
+        }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try JSONDecoder().decode(FlightAPIResponse.self, from: data)
+            
+            await MainActor.run {
+                self.incrementRequestCount()
+            }
+            
+            return response.data.first
+        } catch {
+            print("Failed to fetch flight details: \(error)")
+            return nil
+        }
+    }
+    
+    func fetchFlightRoute(for flightNumber: String) async -> [CLLocationCoordinate2D]? {
+        guard canMakeRequest(),
+              let url = URL(string: "\(baseURL)/flights?access_key=\(apiKey)&flight_iata=\(flightNumber)") else {
+            return nil
+        }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try JSONDecoder().decode(FlightAPIResponse.self, from: data)
+            
+            await MainActor.run {
+                self.incrementRequestCount()
+            }
+            
+            if let flightData = response.data.first,
+               let depAirport = cachedAirports[flightData.departure.iata],
+               let arrAirport = cachedAirports[flightData.arrival.iata] {
+                
+                let departure = CLLocationCoordinate2D(
+                    latitude: Double(depAirport.latitude) ?? 0,
+                    longitude: Double(depAirport.longitude) ?? 0
+                )
+                
+                let arrival = CLLocationCoordinate2D(
+                    latitude: Double(arrAirport.latitude) ?? 0,
+                    longitude: Double(arrAirport.longitude) ?? 0
+                )
+                
+                return generateFlightRoute(from: departure, to: arrival)
+            }
+            
+            return nil
+        } catch {
+            print("Failed to fetch flight route: \(error)")
+            return nil
+        }
+    }
+    
     private func fetchFlights() async {
-        guard !apiKey.isEmpty,
+        guard canMakeRequest(),
               let url = URL(string: "\(baseURL)/flights?access_key=\(apiKey)&limit=100") else {
             return
         }
@@ -177,14 +271,15 @@ class FlightAPIService: ObservableObject {
             
             await MainActor.run {
                 self.cachedFlights = response.data
+                self.incrementRequestCount()
             }
         } catch {
-            // Error fetching flights
+            print("Failed to fetch flights: \(error)")
         }
     }
     
     private func fetchAirports() async {
-        guard !apiKey.isEmpty,
+        guard canMakeRequest(),
               let url = URL(string: "\(baseURL)/airports?access_key=\(apiKey)&limit=100") else {
             return
         }
@@ -197,9 +292,10 @@ class FlightAPIService: ObservableObject {
                 for airport in response.data {
                     self.cachedAirports[airport.iata_code] = airport
                 }
+                self.incrementRequestCount()
             }
         } catch {
-            // Error fetching airports
+            print("Failed to fetch airports: \(error)")
         }
     }
     
@@ -386,5 +482,46 @@ class FlightAPIService: ObservableObject {
             flight.departure.iata.localizedCaseInsensitiveContains(departure) &&
             flight.arrival.iata.localizedCaseInsensitiveContains(arrival)
         }
+    }
+    
+    private func generateFlightRoute(from departure: CLLocationCoordinate2D, to arrival: CLLocationCoordinate2D) -> [CLLocationCoordinate2D] {
+        var waypoints: [CLLocationCoordinate2D] = []
+        
+        waypoints.append(departure)
+        
+        let numberOfWaypoints = 10
+        for i in 1..<numberOfWaypoints {
+            let progress = Double(i) / Double(numberOfWaypoints)
+            let waypoint = interpolateGreatCircle(from: departure, to: arrival, progress: progress)
+            waypoints.append(waypoint)
+        }
+        
+        waypoints.append(arrival)
+        
+        return waypoints
+    }
+    
+    private func interpolateGreatCircle(from start: CLLocationCoordinate2D, to end: CLLocationCoordinate2D, progress: Double) -> CLLocationCoordinate2D {
+        let startLat = start.latitude * .pi / 180
+        let startLon = start.longitude * .pi / 180
+        let endLat = end.latitude * .pi / 180
+        let endLon = end.longitude * .pi / 180
+        
+        let d = 2 * asin(sqrt(pow(sin((startLat - endLat) / 2), 2) + cos(startLat) * cos(endLat) * pow(sin((startLon - endLon) / 2), 2)))
+        
+        let a = sin((1 - progress) * d) / sin(d)
+        let b = sin(progress * d) / sin(d)
+        
+        let x = a * cos(startLat) * cos(startLon) + b * cos(endLat) * cos(endLon)
+        let y = a * cos(startLat) * sin(startLon) + b * cos(endLat) * sin(endLon)
+        let z = a * sin(startLat) + b * sin(endLat)
+        
+        let resultLat = atan2(z, sqrt(x * x + y * y))
+        let resultLon = atan2(y, x)
+        
+        return CLLocationCoordinate2D(
+            latitude: resultLat * 180 / .pi,
+            longitude: resultLon * 180 / .pi
+        )
     }
 }
