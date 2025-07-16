@@ -409,7 +409,6 @@ struct AddFlightView: View {
     }
 }
 
-// MARK: - Button Styles
 
 struct MinimalButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -425,26 +424,6 @@ struct MinimalButtonStyle: ButtonStyle {
                     .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
             .cornerRadius(24)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-            )
-            isLoading = false
-            dismiss()
-        }
-    }
-}
-
-struct PrimaryButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.headline)
-            .foregroundColor(.white)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(Color.blue)
-            .cornerRadius(12)
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }

@@ -8,6 +8,7 @@ struct FlightDashboardView: View {
     @State private var showingSettings = false
     @State private var showingSearch = false
     @State private var showingFlightNumberInput = false
+    @State private var showingAPISetup = false
     
     var body: some View {
         NavigationView {
@@ -22,6 +23,7 @@ struct FlightDashboardView: View {
                         showingSettings: $showingSettings,
                         showingSearch: $showingSearch,
                         showingFlightNumberInput: $showingFlightNumberInput,
+                        showingAPISetup: $showingAPISetup,
                         selectedFlight: $selectedFlight,
                         flightManager: flightManager
                     )
@@ -42,12 +44,14 @@ struct FlightDashboardView: View {
         .sheet(isPresented: $showingSearch) {
             FlightSearchView()
         }
+        .sheet(isPresented: $showingAPISetup) {
+            APIKeySetupView()
+        }
         .sheet(isPresented: $showingFlightNumberInput) {
             FlightNumberInputView(
                 onFlightSelected: { flight in
                     selectedFlight = flight
                     showingFlightNumberInput = false
-                    // Start tracking the flight immediately
                     flightManager.startTracking(flight: SavedFlight(
                         flightNumber: flight.flightNumber,
                         departureDate: flight.scheduledDeparture,
@@ -60,6 +64,19 @@ struct FlightDashboardView: View {
                 }
             )
         }
+        .onAppear {
+            if !flightManager.apiService.hasValidAPIKey {
+                showingAPISetup = true
+            }
+            
+            flightManager.openSkyService.startRealTimeTracking()
+            
+            if flightManager.apiService.hasValidAPIKey {
+                Task {
+                    await flightManager.apiService.preloadFlightData()
+                }
+            }
+        }
     }
 }
 
@@ -68,6 +85,7 @@ struct IdleStateView: View {
     @Binding var showingSettings: Bool
     @Binding var showingSearch: Bool
     @Binding var showingFlightNumberInput: Bool
+    @Binding var showingAPISetup: Bool
     @Binding var selectedFlight: FlightRoute?
     let flightManager: FlightManager
     
@@ -83,6 +101,20 @@ struct IdleStateView: View {
                 }
                 
                 Spacer()
+                
+                if !flightManager.apiService.hasValidAPIKey {
+                    Button(action: {
+                        showingAPISetup = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "key")
+                                .font(.system(size: 12, weight: .medium))
+                            Text("API")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(.orange)
+                    }
+                }
                 
                 Button(action: {
                     showingSettings = true

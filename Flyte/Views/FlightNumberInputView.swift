@@ -248,7 +248,6 @@ struct FlightNumberInputView: View {
         errorMessage = ""
         searchResult = nil
         
-        // First search in cached data
         if let cachedResult = apiService.getFlightStatus(flightNumber: flightNumber) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 self.searchResult = cachedResult
@@ -257,7 +256,6 @@ struct FlightNumberInputView: View {
             return
         }
         
-        // If not found in cache, search via API
         Task {
             await searchFlightFromAPI()
         }
@@ -287,7 +285,6 @@ struct FlightNumberInputView: View {
             await MainActor.run {
                 if let flight = apiResponse.data.first {
                     self.searchResult = flight
-                    // Also cache this result
                     self.apiService.cachedFlights.append(flight)
                     self.apiService.saveCachedData()
                 } else {
