@@ -2,7 +2,7 @@ import SwiftUI
 import CoreLocation
 
 struct MapView: View {
-    @ObservedObject var flightTracker: FlightTracker
+    @ObservedObject var flightManager: FlightManager
     @State private var showingFullMap = false
     
     var body: some View {
@@ -17,8 +17,8 @@ struct MapView: View {
                         .fill(Color.gray.opacity(0.1))
                         .frame(height: 250)
                     
-                    if let status = flightTracker.flightStatus,
-                       let flight = flightTracker.currentFlight {
+                    if let status = flightManager.liveFlightStatus,
+                       let flight = flightManager.currentTrackingFlight {
                         VStack(spacing: 16) {
                             routeVisualization(flight: flight, status: status)
                             locationInfo(status: status)
@@ -41,7 +41,7 @@ struct MapView: View {
             .buttonStyle(PlainButtonStyle())
         }
         .sheet(isPresented: $showingFullMap) {
-            FullMapView(flightTracker: flightTracker)
+            FullMapView(flightManager: flightManager)
         }
     }
     
@@ -54,7 +54,7 @@ struct MapView: View {
             
             Spacer()
             
-            if flightTracker.isTracking {
+            if flightManager.isTracking {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(Color.green)
@@ -139,7 +139,7 @@ struct MapView: View {
 }
 
 struct FullMapView: View {
-    @ObservedObject var flightTracker: FlightTracker
+    @ObservedObject var flightManager: FlightManager
     @Environment(\.dismiss) private var dismiss
     
     var body: some View {
@@ -154,8 +154,8 @@ struct FullMapView: View {
                         Rectangle()
                             .fill(Color.gray.opacity(0.1))
                         
-                        if let status = flightTracker.flightStatus,
-                           let flight = flightTracker.currentFlight {
+                        if let status = flightManager.liveFlightStatus,
+                           let flight = flightManager.currentTrackingFlight {
                             VStack(spacing: 20) {
                                 Text("DETAILED MAP VIEW")
                                     .font(.system(size: 16, weight: .medium))
@@ -252,5 +252,5 @@ struct FullMapView: View {
 }
 
 #Preview {
-    MapView(flightTracker: FlightTracker())
+    MapView(flightManager: FlightManager())
 }

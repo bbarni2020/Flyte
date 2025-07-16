@@ -2,24 +2,28 @@ import SwiftUI
 import CoreLocation
 
 struct FlightDashboardView: View {
-    @StateObject private var flightTracker = FlightTracker()
+    @StateObject private var flightManager = FlightManager()
     @State private var selectedFlight: FlightRoute?
     @State private var showingFlightList = false
     @State private var showingSettings = false
+    @State private var showingSearch = false
+    @State private var showingFlightNumberInput = false
     
     var body: some View {
         NavigationView {
             ZStack {
                 Color.black.ignoresSafeArea()
                 
-                if flightTracker.isTracking {
-                    ActiveFlightView(flightTracker: flightTracker)
+                if flightManager.isTracking {
+                    ActiveFlightView(flightManager: flightManager)
                 } else {
                     IdleStateView(
                         showingFlightList: $showingFlightList,
                         showingSettings: $showingSettings,
+                        showingSearch: $showingSearch,
+                        showingFlightNumberInput: $showingFlightNumberInput,
                         selectedFlight: $selectedFlight,
-                        flightTracker: flightTracker
+                        flightManager: flightManager
                     )
                 }
             }
@@ -29,11 +33,32 @@ struct FlightDashboardView: View {
         .sheet(isPresented: $showingFlightList) {
             LiveFlightSelectionView(
                 selectedFlight: $selectedFlight,
-                flightTracker: flightTracker
+                flightManager: flightManager
             )
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
+        }
+        .sheet(isPresented: $showingSearch) {
+            FlightSearchView()
+        }
+        .sheet(isPresented: $showingFlightNumberInput) {
+            FlightNumberInputView(
+                onFlightSelected: { flight in
+                    selectedFlight = flight
+                    showingFlightNumberInput = false
+                    // Start tracking the flight immediately
+                    flightManager.startTracking(flight: SavedFlight(
+                        flightNumber: flight.flightNumber,
+                        departureDate: flight.scheduledDeparture,
+                        departureTime: flight.scheduledDeparture,
+                        departure: flight.departure,
+                        arrival: flight.arrival,
+                        airline: flight.airline,
+                        aircraft: flight.aircraft
+                    ))
+                }
+            )
         }
     }
 }
@@ -41,12 +66,22 @@ struct FlightDashboardView: View {
 struct IdleStateView: View {
     @Binding var showingFlightList: Bool
     @Binding var showingSettings: Bool
+    @Binding var showingSearch: Bool
+    @Binding var showingFlightNumberInput: Bool
     @Binding var selectedFlight: FlightRoute?
-    let flightTracker: FlightTracker
+    let flightManager: FlightManager
     
     var body: some View {
         VStack(spacing: 40) {
             HStack {
+                Button(action: {
+                    showingSearch = true
+                }) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                
                 Spacer()
                 
                 Button(action: {
@@ -78,21 +113,57 @@ struct IdleStateView: View {
             
             Spacer()
             
-            Button(action: {
-                showingFlightList = true
-            }) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 20, weight: .medium))
-                    Text("Start Tracking")
-                        .font(.system(size: 18, weight: .medium))
-                        .tracking(1)
+            VStack(spacing: 16) {
+                Button(action: {
+                    showingFlightList = true
+                }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 20, weight: .medium))
+                        Text("Start Tracking")
+                            .font(.system(size: 18, weight: .medium))
+                            .tracking(1)
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(Color.white)
+                    .cornerRadius(28)
                 }
-                .foregroundColor(.black)
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(Color.white)
-                .cornerRadius(28)
+                
+                Button(action: {
+                    showingSearch = true
+                }) {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16, weight: .medium))
+                        Text("Search Flights")
+                            .font(.system(size: 16, weight: .medium))
+                            .tracking(1)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(24)
+                }
+                
+                Button(action: {
+                    showingFlightNumberInput = true
+                }) {
+                    HStack {
+                        Image(systemName: "airplane.circle")
+                            .font(.system(size: 16, weight: .medium))
+                        Text("Enter Flight Number")
+                            .font(.system(size: 16, weight: .medium))
+                            .tracking(1)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(24)
+                }
             }
             .padding(.horizontal, 40)
             .padding(.bottom, 40)
@@ -101,27 +172,27 @@ struct IdleStateView: View {
 }
 
 struct ActiveFlightView: View {
-    @ObservedObject var flightTracker: FlightTracker
+    @ObservedObject var flightManager: FlightManager
     
     var body: some View {
         VStack(spacing: 0) {
-            FlightHeaderView(flightTracker: flightTracker)
+            FlightHeaderView(flightManager: flightManager)
             
-            FlightMapView(flightTracker: flightTracker)
+            FlightMapView(flightManager: flightManager)
             
-            FlightDetailsView(flightTracker: flightTracker)
+            FlightDetailsView(flightManager: flightManager)
         }
     }
 }
 
 struct FlightHeaderView: View {
-    @ObservedObject var flightTracker: FlightTracker
+    @ObservedObject var flightManager: FlightManager
     
     var body: some View {
         VStack(spacing: 20) {
             HStack {
                 Button(action: {
-                    flightTracker.stopTracking()
+                    flightManager.stopTracking()
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 20, weight: .medium))
@@ -145,7 +216,7 @@ struct FlightHeaderView: View {
             .padding(.horizontal, 20)
             .padding(.top, 20)
             
-            if let flight = flightTracker.currentFlight {
+            if let flight = flightManager.currentTrackingFlight {
                 VStack(spacing: 12) {
                     Text("\(flight.airline) \(flight.flightNumber)")
                         .font(.system(size: 16, weight: .medium))
@@ -169,7 +240,7 @@ struct FlightHeaderView: View {
                                 .font(.system(size: 20, weight: .medium))
                                 .foregroundColor(.white.opacity(0.8))
                             
-                            if let status = flightTracker.flightStatus {
+                            if let status = flightManager.liveFlightStatus {
                                 Text("\(Int(status.progress * 100))%")
                                     .font(.system(size: 12, weight: .medium))
                                     .foregroundColor(.white.opacity(0.6))
@@ -196,19 +267,19 @@ struct FlightHeaderView: View {
 }
 
 struct FlightMapView: View {
-    @ObservedObject var flightTracker: FlightTracker
+    @ObservedObject var flightManager: FlightManager
     
     var body: some View {
-        MapView(flightTracker: flightTracker)
+        MapView(flightManager: flightManager)
     }
 }
 
 struct FlightDetailsView: View {
-    @ObservedObject var flightTracker: FlightTracker
+    @ObservedObject var flightManager: FlightManager
     
     var body: some View {
         VStack(spacing: 0) {
-            if let status = flightTracker.flightStatus {
+            if let status = flightManager.liveFlightStatus {
                 Rectangle()
                     .fill(Color.white)
                     .frame(height: status.progress * UIScreen.main.bounds.width)

@@ -3,7 +3,7 @@ import CoreLocation
 
 struct FlightSelectionView: View {
     @Binding var selectedFlight: FlightRoute?
-    let flightTracker: FlightTracker
+    let flightManager: FlightManager
     @Environment(\.dismiss) private var dismiss
     @State private var selectedFlightIndex = 0
     
@@ -144,7 +144,15 @@ struct FlightSelectionView: View {
     private var startTrackingButton: some View {
         Button(action: {
             let selectedFlight = sampleFlights[selectedFlightIndex]
-            flightTracker.startTracking(flight: selectedFlight, departureTime: Date())
+            flightManager.startTracking(flight: SavedFlight(
+                flightNumber: selectedFlight.flightNumber,
+                departureDate: selectedFlight.scheduledDeparture,
+                departureTime: selectedFlight.scheduledDeparture,
+                departure: selectedFlight.departure,
+                arrival: selectedFlight.arrival,
+                airline: selectedFlight.airline,
+                aircraft: selectedFlight.aircraft
+            ))
             dismiss()
         }) {
             HStack {
@@ -252,5 +260,5 @@ struct FlightCard: View {
 }
 
 #Preview {
-    FlightSelectionView(selectedFlight: .constant(nil), flightTracker: FlightTracker())
+    FlightSelectionView(selectedFlight: .constant(nil), flightManager: FlightManager())
 }

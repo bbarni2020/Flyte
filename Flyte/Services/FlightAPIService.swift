@@ -117,8 +117,8 @@ struct AirportData: Codable {
 class FlightAPIService: ObservableObject {
     static let shared = FlightAPIService()
     
-    private let baseURL = "http://api.aviationstack.com/v1"
-    private var apiKey: String {
+    private let baseURL = "https://api.aviationstack.com/v1"
+    var apiKey: String {
         return UserDefaults.standard.string(forKey: "aviationstack_api_key") ?? ""
     }
     
@@ -142,29 +142,26 @@ class FlightAPIService: ObservableObject {
         hasValidAPIKey = !apiKey.isEmpty
     }
     
+    func updateAPIKeyStatus() {
+        checkAPIKey()
+    }
+    
     func preloadFlightData() async {
         guard !apiKey.isEmpty else {
-            print("No API key provided")
             return
         }
         
-        await withCheckedContinuation { continuation in
-            DispatchQueue.main.async {
-                self.isLoading = true
-            }
-            
-            Task {
-                await fetchFlights()
-                await fetchAirports()
-                
-                DispatchQueue.main.async {
-                    self.isLoading = false
-                    self.lastUpdateTime = Date()
-                    self.saveCachedData()
-                }
-                
-                continuation.resume()
-            }
+        await MainActor.run {
+            self.isLoading = true
+        }
+        
+        await fetchFlights()
+        await fetchAirports()
+        
+        await MainActor.run {
+            self.isLoading = false
+            self.lastUpdateTime = Date()
+            self.saveCachedData()
         }
     }
     
@@ -178,11 +175,11 @@ class FlightAPIService: ObservableObject {
             let (data, _) = try await URLSession.shared.data(from: url)
             let response = try JSONDecoder().decode(FlightAPIResponse.self, from: data)
             
-            DispatchQueue.main.async {
+            await MainActor.run {
                 self.cachedFlights = response.data
             }
         } catch {
-            print("Error fetching flights: \(error)")
+            // Error fetching flights
         }
     }
     
@@ -196,13 +193,13 @@ class FlightAPIService: ObservableObject {
             let (data, _) = try await URLSession.shared.data(from: url)
             let response = try JSONDecoder().decode(AirportAPIResponse.self, from: data)
             
-            DispatchQueue.main.async {
+            await MainActor.run {
                 for airport in response.data {
                     self.cachedAirports[airport.iata_code] = airport
                 }
             }
         } catch {
-            print("Error fetching airports: \(error)")
+            // Error fetching airports
         }
     }
     
@@ -224,7 +221,7 @@ class FlightAPIService: ObservableObject {
         }
     }
     
-    private func saveCachedData() {
+    func saveCachedData() {
         if let flightsData = try? JSONEncoder().encode(cachedFlights) {
             userDefaults.set(flightsData, forKey: flightsCacheKey)
         }
@@ -318,21 +315,76 @@ class FlightAPIService: ObservableObject {
         return formatter.date(from: dateString) ?? Date()
     }
     
-    func searchFlights(departure: String? = nil, arrival: String? = nil) -> [FlightData] {
+    func searchFlights(
+        departure: String? = nil,
+        arrival: String? = nil,
+        airline: String? = nil,
+        flightNumber: String? = nil
+    ) -> [FlightData] {
         var filteredFlights = cachedFlights
         
-        if let dep = departure {
-            filteredFlights = filteredFlights.filter { $0.departure.iata.contains(dep.uppercased()) }
+        if let dep = departure, !dep.isEmpty {
+            filteredFlights = filteredFlights.filter { flight in
+                flight.departure.iata.localizedCaseInsensitiveContains(dep) ||
+                flight.departure.airport.localizedCaseInsensitiveContains(dep) ||
+                flight.departure.icao.localizedCaseInsensitiveContains(dep)
+            }
         }
         
-        if let arr = arrival {
-            filteredFlights = filteredFlights.filter { $0.arrival.iata.contains(arr.uppercased()) }
+        if let arr = arrival, !arr.isEmpty {
+            filteredFlights = filteredFlights.filter { flight in
+                flight.arrival.iata.localizedCaseInsensitiveContains(arr) ||
+                flight.arrival.airport.localizedCaseInsensitiveContains(arr) ||
+                flight.arrival.icao.localizedCaseInsensitiveContains(arr)
+            }
+        }
+        
+        if let air = airline, !air.isEmpty {
+            filteredFlights = filteredFlights.filter { flight in
+                flight.airline.name.localizedCaseInsensitiveContains(air) ||
+                flight.airline.iata.localizedCaseInsensitiveContains(air) ||
+                flight.airline.icao.localizedCaseInsensitiveContains(air)
+            }
+        }
+        
+        if let flightNum = flightNumber, !flightNum.isEmpty {
+            filteredFlights = filteredFlights.filter { flight in
+                flight.flight.iata.localizedCaseInsensitiveContains(flightNum) ||
+                flight.flight.icao.localizedCaseInsensitiveContains(flightNum) ||
+                flight.flight.number.localizedCaseInsensitiveContains(flightNum)
+            }
         }
         
         return filteredFlights
     }
     
+    func getUniqueAirlines() -> [String] {
+        let airlines = Set(cachedFlights.map { $0.airline.name })
+        return Array(airlines).sorted()
+    }
+    
+    func getUniqueDepartures() -> [String] {
+        let departures = Set(cachedFlights.map { "\($0.departure.iata) - \($0.departure.airport)" })
+        return Array(departures).sorted()
+    }
+    
+    func getUniqueArrivals() -> [String] {
+        let arrivals = Set(cachedFlights.map { "\($0.arrival.iata) - \($0.arrival.airport)" })
+        return Array(arrivals).sorted()
+    }
+    
     func getFlightStatus(flightNumber: String) -> FlightData? {
-        return cachedFlights.first { $0.flight.iata == flightNumber }
+        return cachedFlights.first { flight in
+            flight.flight.iata.localizedCaseInsensitiveContains(flightNumber) ||
+            flight.flight.icao.localizedCaseInsensitiveContains(flightNumber) ||
+            flight.flight.number.localizedCaseInsensitiveContains(flightNumber)
+        }
+    }
+    
+    func getFlightsByRoute(departure: String, arrival: String) -> [FlightData] {
+        return cachedFlights.filter { flight in
+            flight.departure.iata.localizedCaseInsensitiveContains(departure) &&
+            flight.arrival.iata.localizedCaseInsensitiveContains(arrival)
+        }
     }
 }

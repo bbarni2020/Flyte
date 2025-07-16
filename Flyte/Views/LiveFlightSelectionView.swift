@@ -3,13 +3,18 @@ import CoreLocation
 
 struct LiveFlightSelectionView: View {
     @Binding var selectedFlight: FlightRoute?
-    let flightTracker: FlightTracker
+    let flightManager: FlightManager
     @Environment(\.dismiss) private var dismiss
     @StateObject private var apiService = FlightAPIService.shared
     @State private var selectedFlightIndex = 0
     @State private var searchText = ""
     @State private var showingPreloadSheet = false
     @State private var availableFlights: [FlightRoute] = []
+    @State private var showingSearchFilters = false
+    @State private var departureFilter = ""
+    @State private var arrivalFilter = ""
+    @State private var airlineFilter = ""
+    @State private var showingFlightNumberInput = false
     
     var body: some View {
         NavigationView {
@@ -39,6 +44,25 @@ struct LiveFlightSelectionView: View {
         .sheet(isPresented: $showingPreloadSheet) {
             PreloadDataView()
         }
+        .sheet(isPresented: $showingSearchFilters) {
+            SearchFiltersView(
+                departureFilter: $departureFilter,
+                arrivalFilter: $arrivalFilter,
+                airlineFilter: $airlineFilter,
+                onApplyFilters: {
+                    loadAvailableFlights()
+                }
+            )
+        }
+        .sheet(isPresented: $showingFlightNumberInput) {
+            FlightNumberInputView(
+                onFlightSelected: { flight in
+                    selectedFlight = flight
+                    showingFlightNumberInput = false
+                    dismiss()
+                }
+            )
+        }
     }
     
     private var headerView: some View {
@@ -62,6 +86,14 @@ struct LiveFlightSelectionView: View {
                 Spacer()
                 
                 Button(action: {
+                    showingFlightNumberInput = true
+                }) {
+                    Image(systemName: "airplane.circle")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+                
+                Button(action: {
                     showingPreloadSheet = true
                 }) {
                     Image(systemName: "arrow.down.circle")
@@ -73,22 +105,67 @@ struct LiveFlightSelectionView: View {
             .padding(.top, 20)
             
             if !apiService.cachedFlights.isEmpty {
-                HStack {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                    
-                    TextField("Search flights...", text: $searchText)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .foregroundColor(.white)
-                        .onChange(of: searchText) { _ in
-                            loadAvailableFlights()
+                VStack(spacing: 12) {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                        
+                        TextField("Search flights...", text: $searchText)
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .foregroundColor(.white)
+                            .onChange(of: searchText) { _, _ in
+                                loadAvailableFlights()
+                            }
+                        
+                        Button(action: {
+                            showingSearchFilters = true
+                        }) {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(.white.opacity(0.6))
                         }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(12)
+                    
+                    if !departureFilter.isEmpty || !arrivalFilter.isEmpty || !airlineFilter.isEmpty {
+                        HStack {
+                            if !departureFilter.isEmpty {
+                                FilterChip(text: "From: \(departureFilter)", onRemove: {
+                                    departureFilter = ""
+                                    loadAvailableFlights()
+                                })
+                            }
+                            
+                            if !arrivalFilter.isEmpty {
+                                FilterChip(text: "To: \(arrivalFilter)", onRemove: {
+                                    arrivalFilter = ""
+                                    loadAvailableFlights()
+                                })
+                            }
+                            
+                            if !airlineFilter.isEmpty {
+                                FilterChip(text: "Airline: \(airlineFilter)", onRemove: {
+                                    airlineFilter = ""
+                                    loadAvailableFlights()
+                                })
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                clearAllFilters()
+                            }) {
+                                Text("Clear All")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.6))
+                            }
+                        }
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.1))
-                .cornerRadius(12)
                 .padding(.horizontal, 20)
             }
         }
@@ -152,7 +229,15 @@ struct LiveFlightSelectionView: View {
         Button(action: {
             if !availableFlights.isEmpty {
                 let selectedFlight = availableFlights[selectedFlightIndex]
-                flightTracker.startTracking(flight: selectedFlight, departureTime: selectedFlight.scheduledDeparture)
+                flightManager.startTracking(flight: SavedFlight(
+                    flightNumber: selectedFlight.flightNumber,
+                    departureDate: selectedFlight.scheduledDeparture,
+                    departureTime: selectedFlight.scheduledDeparture,
+                    departure: selectedFlight.departure,
+                    arrival: selectedFlight.arrival,
+                    airline: selectedFlight.airline,
+                    aircraft: selectedFlight.aircraft
+                ))
                 dismiss()
             }
         }) {
@@ -182,16 +267,57 @@ struct LiveFlightSelectionView: View {
             }
         }
         
+        flights = applyFilters(to: flights)
+        availableFlights = flights
+    }
+    
+    private func applyFilters(to flights: [FlightRoute]) -> [FlightRoute] {
+        var filteredFlights = flights
+        
         if !searchText.isEmpty {
-            flights = flights.filter { flight in
+            filteredFlights = filteredFlights.filter { flight in
                 flight.departure.code.localizedCaseInsensitiveContains(searchText) ||
                 flight.arrival.code.localizedCaseInsensitiveContains(searchText) ||
                 flight.airline.localizedCaseInsensitiveContains(searchText) ||
-                flight.flightNumber.localizedCaseInsensitiveContains(searchText)
+                flight.flightNumber.localizedCaseInsensitiveContains(searchText) ||
+                flight.departure.city.localizedCaseInsensitiveContains(searchText) ||
+                flight.arrival.city.localizedCaseInsensitiveContains(searchText) ||
+                flight.departure.country.localizedCaseInsensitiveContains(searchText) ||
+                flight.arrival.country.localizedCaseInsensitiveContains(searchText)
             }
         }
         
-        availableFlights = flights
+        if !departureFilter.isEmpty {
+            filteredFlights = filteredFlights.filter { flight in
+                flight.departure.code.localizedCaseInsensitiveContains(departureFilter) ||
+                flight.departure.city.localizedCaseInsensitiveContains(departureFilter) ||
+                flight.departure.country.localizedCaseInsensitiveContains(departureFilter)
+            }
+        }
+        
+        if !arrivalFilter.isEmpty {
+            filteredFlights = filteredFlights.filter { flight in
+                flight.arrival.code.localizedCaseInsensitiveContains(arrivalFilter) ||
+                flight.arrival.city.localizedCaseInsensitiveContains(arrivalFilter) ||
+                flight.arrival.country.localizedCaseInsensitiveContains(arrivalFilter)
+            }
+        }
+        
+        if !airlineFilter.isEmpty {
+            filteredFlights = filteredFlights.filter { flight in
+                flight.airline.localizedCaseInsensitiveContains(airlineFilter)
+            }
+        }
+        
+        return filteredFlights
+    }
+    
+    private func clearAllFilters() {
+        searchText = ""
+        departureFilter = ""
+        arrivalFilter = ""
+        airlineFilter = ""
+        loadAvailableFlights()
     }
 }
 
@@ -447,6 +573,150 @@ struct PreloadDataView: View {
     }
 }
 
+struct FilterChip: View {
+    let text: String
+    let onRemove: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white)
+            
+            Button(action: onRemove) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.white.opacity(0.1))
+        .cornerRadius(16)
+    }
+}
+
+struct SearchFiltersView: View {
+    @Binding var departureFilter: String
+    @Binding var arrivalFilter: String
+    @Binding var airlineFilter: String
+    let onApplyFilters: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                
+                VStack(spacing: 0) {
+                    headerView
+                    
+                    VStack(spacing: 24) {
+                        filterSection(
+                            title: "DEPARTURE",
+                            placeholder: "City, airport code, or country",
+                            text: $departureFilter,
+                            icon: "airplane.departure"
+                        )
+                        
+                        filterSection(
+                            title: "ARRIVAL",
+                            placeholder: "City, airport code, or country",
+                            text: $arrivalFilter,
+                            icon: "airplane.arrival"
+                        )
+                        
+                        filterSection(
+                            title: "AIRLINE",
+                            placeholder: "Airline name",
+                            text: $airlineFilter,
+                            icon: "building.2"
+                        )
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 30)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        onApplyFilters()
+                        dismiss()
+                    }) {
+                        Text("Apply Filters")
+                            .font(.system(size: 18, weight: .medium))
+                            .tracking(1)
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(Color.white)
+                            .cornerRadius(28)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 40)
+                }
+            }
+            .navigationBarHidden(true)
+            .preferredColorScheme(.dark)
+        }
+    }
+    
+    private var headerView: some View {
+        HStack {
+            Button(action: {
+                dismiss()
+            }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+            
+            Spacer()
+            
+            Text("SEARCH FILTERS")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.white)
+                .tracking(2)
+            
+            Spacer()
+            
+            Button(action: {
+                departureFilter = ""
+                arrivalFilter = ""
+                airlineFilter = ""
+            }) {
+                Text("Clear")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+    }
+    
+    private func filterSection(title: String, placeholder: String, text: Binding<String>, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                    .tracking(2)
+            }
+            
+            TextField(placeholder, text: text)
+                .textFieldStyle(PlainTextFieldStyle())
+                .foregroundColor(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(12)
+        }
+    }
+}
+
 #Preview {
-    LiveFlightSelectionView(selectedFlight: .constant(nil), flightTracker: FlightTracker())
+    LiveFlightSelectionView(selectedFlight: .constant(nil), flightManager: FlightManager())
 }
